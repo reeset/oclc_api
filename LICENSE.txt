@@ -1,0 +1,9 @@
+﻿/*******************************************************
+ *  Author: Terry Reese
+ *  Project: oclc_api
+ *  License: http://creativecommons.org/publicdomain/zero/1.0
+ *  To the extent possible under law, Terry Reese has waived 
+ *  all copyright and related or neighboring rights to koha_api. 
+ *  This work is published from:  United States. 
+ ********************************************************/
+
