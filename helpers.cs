@@ -46,7 +46,8 @@ namespace oclc_api
                 {
                     wr.Proxy = proxy;
                 }
-            
+
+                wr.UserAgent = "MarcEdit";
                 wr.Headers.Add(System.Net.HttpRequestHeader.Authorization, secure_auth);
                 wr.ContentType = "application/atom+xml";
                 wr.Method = sMethod;
@@ -239,7 +240,7 @@ signature = base64 ( digest )
                 wr.Headers.Add(System.Net.HttpRequestHeader.Authorization, secure_auth);
                 
                 wr.ContentType = "application/vnd.oclc.marc21+xml"; // "application/atom+xml;content=\"application/vnd.oclc.marc21+xml\""; // "application/atom+xml";
-                wr.UserAgent = "MarcEdit 5.9";
+                wr.UserAgent = "MarcEdit";
 
                 wr.Method = sMethod;
 
@@ -297,7 +298,8 @@ signature = base64 ( digest )
                 {
                     wr.Proxy = proxy;
                 }
-                
+
+                wr.UserAgent = "MarcEdit";
                 wr.Method = sMethod;
                 
                 System.Net.WebResponse response = wr.GetResponse();
