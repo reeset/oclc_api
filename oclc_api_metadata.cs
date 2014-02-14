@@ -191,13 +191,22 @@ namespace oclc_api
             {
                 LastResponseCode = "";
                 string base_url = WorldCat_Service_URI;
+                string ErrorResponse = "";
                 helpers.wskey = Wskey;
                 helpers.wskey_secret = Secret_Key;
 
                 base_url += "?classificationScheme=" + schema + "&instSymbol=" + InstSymbol + "&holdingLibraryCode=" + holdingCode + "&oclcNumber=" + oclcNumber;
                 string response = helpers.MakeHTTPRequest(base_url, SetProxy, "POST");
+
                 Debug_Info = helpers.debug_string + "\n\n" + base_url;
                 LastResponseCode = response;
+                Debug_Info += "\n" + LastResponseCode + "\n\n";
+
+                if (helpers.IsError(response, out ErrorResponse) == true)
+                {
+                    LastResponseCode = ErrorResponse;
+                    return false;
+                }
                 return true;
             }
                 catch (System.Net.WebException e) {
@@ -217,6 +226,7 @@ namespace oclc_api
             {
                 LastResponseCode = "";
                 string base_url = WorldCat_Service_URI;
+                string ErrorResponse = "";
                 helpers.wskey = Wskey;
                 helpers.wskey_secret = Secret_Key;
 
@@ -225,6 +235,13 @@ namespace oclc_api
                 string response = helpers.MakeHTTPRequest(base_url, SetProxy, "DELETE");
                 Debug_Info = helpers.debug_string + "\n\n" + base_url;
                 LastResponseCode = response;
+                Debug_Info += "\n" + LastResponseCode + "\n";
+
+                if (helpers.IsError(response, out ErrorResponse) == true)
+                {
+                    LastResponseCode = ErrorResponse;
+                    return false;
+                }
                 return true;
             }
             catch
@@ -250,6 +267,8 @@ namespace oclc_api
             uri += "?principalID=" + PrincipleID + "&principalIDNS=" + PrincipleIDNS;
             return uri;
         }
+
+        
 
     }
 }

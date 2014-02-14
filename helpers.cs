@@ -321,6 +321,24 @@ signature = base64 ( digest )
             }
         }
 
+        internal static bool IsError(string xmlResponse, out string sMessage)
+        {
+            System.Xml.XmlDocument objXML = new System.Xml.XmlDocument();
+            objXML.LoadXml(xmlResponse);
+            System.Xml.XmlNamespaceManager nsmgr = new System.Xml.XmlNamespaceManager(objXML.NameTable);
+            nsmgr.AddNamespace("x", objXML.DocumentElement.NamespaceURI);
+            sMessage = "";
+
+            if (objXML.SelectSingleNode("/x:error/x:code", nsmgr) != null)
+            {
+                sMessage = objXML.SelectSingleNode("/x:error/x:code", nsmgr).InnerText + ": " + objXML.SelectSingleNode("/x:error/x:message", nsmgr).InnerText;
+                return true;
+            }
+            
+            return false;
+        }
+
+
         private static bool AcceptAllCertifications(object sender, System.Security.Cryptography.X509Certificates.X509Certificate certification, System.Security.Cryptography.X509Certificates.X509Chain chain, System.Net.Security.SslPolicyErrors sslPolicyErrors)
         {
             return true;
