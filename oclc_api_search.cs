@@ -14,12 +14,16 @@ namespace oclc_api
         private System.Net.WebProxy pSetProxy = null;
         private string pwskey = "";
         private string pURL = "http://www.worldcat.org/webservices/catalog/search/sru?query={query}&wskey={wskey}";
-
+       
         public enum Query_Type {
             keyword=0,
             title=1,
             author=2,
-            subject=3
+            subject=3,
+            isbn = 4,
+            issn = 5,
+            oclc = 6
+
         }
 
         public struct struct_Records
@@ -79,6 +83,15 @@ namespace oclc_api
                 case Query_Type.title:
                     sindex = System.Uri.EscapeDataString("srw.ti=\"" + query + "\"");
                     break;
+                case Query_Type.isbn:
+                    sindex = System.Uri.EscapeDataString("srw.bn=\"" + query + "\"");
+                    break;
+                case Query_Type.issn:
+                    sindex = System.Uri.EscapeDataString("srw.in=\"" + query + "\"");
+                    break;
+                case Query_Type.oclc:
+                    sindex = System.Uri.EscapeDataString("srw.no=\"" + query + "\"");
+                    break;
                 default:
                     sindex = System.Uri.EscapeDataString("srw.kw=\"" + query + "\"");
                     break;
@@ -116,6 +129,15 @@ namespace oclc_api
                         break;
                     case Query_Type.title:
                         sindex += "srw.ti=\"" + query[x] + "\" " + sconditional + " ";
+                        break;
+                    case Query_Type.isbn:
+                        sindex += "srw.bn=\"" + query[x] + "\" " + sconditional + " ";
+                        break;
+                    case Query_Type.issn:
+                        sindex += "srw.in=\"" + query[x] + "\" " + sconditional + " ";
+                        break;
+                    case Query_Type.oclc:
+                        sindex += "srw.no=\"" + query[x] + "\" " + sconditional + " ";
                         break;
                     default:
                         sindex += "srw.kw=\"" + query[x] + "\" " + sconditional + " ";
