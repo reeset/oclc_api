@@ -331,7 +331,14 @@ signature = base64 ( digest )
 
             if (objXML.SelectSingleNode("/x:error/x:code", nsmgr) != null)
             {
+                //System.Windows.Forms.MessageBox.Show(objXML.SelectSingleNode("/x:error/x:code", nsmgr).InnerText);
                 sMessage = objXML.SelectSingleNode("/x:error/x:code", nsmgr).InnerText + ": " + objXML.SelectSingleNode("/x:error/x:message", nsmgr).InnerText;
+                if (objXML.SelectSingleNode("/x:error/detail", nsmgr) !=null) {
+                    //System.Windows.Forms.MessageBox.Show("here");
+                    foreach (System.Xml.XmlNode node in objXML.SelectNodes("/x:error/x:detail/validationErrors")) {
+                        sMessage += ": " + node.SelectSingleNode("validationError/message").InnerText;
+                    }
+                }
                 return true;
             }
             
