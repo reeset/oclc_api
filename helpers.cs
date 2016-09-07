@@ -252,8 +252,10 @@ signature = base64 ( digest )
                 System.Net.WebResponse response = wr.GetResponse();
                 objStream = response.GetResponseStream();
                 System.IO.StreamReader reader = new System.IO.StreamReader(objStream);
+                System.Threading.Thread.Sleep(300); //small sleep to ensure that the stream is captured?
                 string sresults = reader.ReadToEnd();
                 reader.Close();
+                //System.Windows.Forms.MessageBox.Show("results: " + sresults);
                 return sresults;
 
             }

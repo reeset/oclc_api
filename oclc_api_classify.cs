@@ -66,23 +66,30 @@ namespace oclc_api
                 //System.Windows.Forms.MessageBox.Show(test_nodes.Count.ToString());
                 if (test_nodes != null && test_nodes.Count > 0)
                 {
-                    
-                    string url = "http://classify.oclc.org/classify2/Classify?swid=" + test_nodes[0].Attributes["swid"].InnerText + "&summary=" + bsummary.ToString();
-                    string txml = helpers.MakeOpenHTTPRequest(url, SetProxy, "GET"); // helpers.MakeHTTPRequest(url, SetProxy);
-                    
-                    if (txml != "")
+                    try
                     {
-                        objXML.LoadXml(txml);
+                        string url = "http://classify.oclc.org/classify2/Classify?swid=" + test_nodes[0].Attributes["swid"].InnerText + "&summary=" + bsummary.ToString();
+                        string txml = helpers.MakeOpenHTTPRequest(url, SetProxy, "GET"); // helpers.MakeHTTPRequest(url, SetProxy);
+
+                        if (txml != "")
+                        {
+                            objXML.LoadXml(txml);
+                        }
+                        else
+                        {
+                            return "";
+                        }
                     }
-                    else
+                    catch
                     {
                         return "";
                     }
                 }
 
             }
-            catch
+            catch (System.Exception ee) 
             {
+                //System.Windows.Forms.MessageBox.Show(ee.ToString());
                 LastError = s;
             }
 
