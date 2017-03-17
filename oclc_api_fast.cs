@@ -27,6 +27,7 @@ namespace oclc_api
 
         public string GetFastRecord(string url)
         {
+            //http://fast.oclc.org/fastIndex/select/?q=keywords%3A(Gettysburg+gac%23n%23us%23pa%23+)&rows=10&start=0&version=2.2&indent=on&fl=id,fullphrase,type,usage,status&sort=usage%20desc
             return helpers.MakeOpenHTTPRequest(url, SetProxy, "GET"); // helpers.MakeHTTPRequest(url, SetProxy);
         }
     }

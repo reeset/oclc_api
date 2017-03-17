@@ -14,7 +14,8 @@ namespace oclc_api
         private System.Net.WebProxy pSetProxy = null;
         private string pwskey = "";
         private string pURL = "http://www.worldcat.org/webservices/catalog/search/sru?query={query}&wskey={wskey}";
-       
+        private string pQueriedURL = "";
+
         public enum Query_Type {
             keyword=0,
             title=1,
@@ -39,6 +40,11 @@ namespace oclc_api
             get { return pURL; }
         }
 
+        public string QueryURL
+        {
+            get { return pQueriedURL; }
+            private set { pQueriedURL = value; }
+        }
 
         public string wskey
         {
@@ -98,6 +104,8 @@ namespace oclc_api
             }
 
             string url = OCLC_WORLDCAT_URL.Replace("{query}", sindex).Replace("{wskey}", wskey);
+            QueryURL = url;
+
             string xml = helpers.MakeHTTPRequest(url, SetProxy);
             if (xml == null || xml == "")
             {
@@ -148,7 +156,8 @@ namespace oclc_api
             sindex = sindex.Substring(0, sindex.Length - (" " + sconditional + " ").Length);
             sindex = System.Uri.EscapeDataString(sindex);
             string url = OCLC_WORLDCAT_URL.Replace("{query}", sindex).Replace("{wskey}", wskey);
-            
+
+            QueryURL = url;
             string xml = helpers.MakeOpenHTTPRequest(url, SetProxy, "GET");
             if (xml == null || xml == "")
             {
