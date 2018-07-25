@@ -13,7 +13,9 @@ namespace oclc_api
         public const string HOLDINGS_CODES_DATA_URI = @"https://worldcat.org/bib/holdinglibraries";
         public const string LOCAL_BIB_DATA_URI = @"https://worldcat.org/lbd/data";
         public const string LOCAL_BIB_DATA_SEARCH_URI = @"https://worldcat.org/lbd/search";
-        
+        public const string VALIDATE_DATA_URI = @"https://worldcat.org/bib/validateFull";
+
+
         private System.Net.WebProxy pSetProxy = null;
         private string pLastError = "";
         private string pPrincipleID = "";
@@ -24,6 +26,7 @@ namespace oclc_api
         private string pWorldCat_Service_URI = "";
         private string pDebug_Info = "";
         private string pInstSymbol = "";
+        private string pAttributeInst = "";
 
 
         public oclc_api_metadata()
@@ -40,8 +43,6 @@ namespace oclc_api
             PrincipleIDNS = oclc_principalIDNS;
 
         }
-
-
 
         public string LastResponseCode
         {
@@ -80,7 +81,9 @@ namespace oclc_api
         public System.Net.WebProxy SetProxy
         {
             get { return pSetProxy; }
-            set { pSetProxy = value; }
+            set { pSetProxy = value;
+                helpers.internal_proxy = value;
+            }
         }
 
         public string WorldCat_Service_URI
@@ -110,10 +113,85 @@ namespace oclc_api
         public string InstSymbol
         {
             get { return pInstSymbol; }
-            set { pInstSymbol = value; }
+            set {
+                if (pInstSymbol != value)
+                {
+                    //Tokens are cleared because we may have
+                    //swapped institutions
+                    helpers.ClearTokens();
+                }
+                pInstSymbol = value;
+                if (helpers.IsNumeric(pInstSymbol) == false)
+                {
+                    helpers.institution_id = helpers.ResolveRegistrySymbol(value);
+                }
+                else
+                {
+                    helpers.institution_id = value;
+                    pInstSymbol = helpers.ResolveRegistrySymbol(value, true);
+                }
+            }
         }
 
-        
+        public string AttributeSymbol
+        {
+            get { return pAttributeInst; }
+            set {
+                if (pAttributeInst != value)
+                {
+                    //Tokens are cleared because we may have swapped
+                    //affiliate institutions
+                    helpers.ClearTokens();
+                }
+                pAttributeInst = value;
+                if (helpers.IsNumeric(pAttributeInst) == false)
+                {
+                    helpers.attribute_id = helpers.ResolveRegistrySymbol(value);
+                } else
+                {
+                    helpers.attribute_id = value;
+                    pAttributeInst = helpers.ResolveRegistrySymbol(value, true);
+                }
+            }
+        }
+
+        public bool UseToken
+        {
+            get { return helpers.useToken; }
+            set { helpers.useToken = value; }
+        }
+
+        public string WorldCatValidateRecord(string xRecord, string inst, 
+            string schema)
+        {
+            
+                try
+                {
+                    LastResponseCode = "";
+                    string ErrorResponse = "";
+                    string base_url = WorldCat_Service_URI;
+                    helpers.wskey = Wskey;
+                    helpers.wskey_secret = Secret_Key;
+
+
+                    base_url += "?instSymbol=" + inst + "&classificationScheme=" + schema;
+                    string response = helpers.MakeHTTP_POST_PUT_Request(base_url, SetProxy, "POST", xRecord);
+                    Debug_Info = helpers.debug_string + "\n\n" + base_url;
+                    LastResponseCode = response;
+                    if (helpers.IsError(response, out ErrorResponse) == true)
+                    {
+                        LastResponseCode = ErrorResponse;
+                        return "";
+                    }
+                    return response;
+                }
+                catch
+                {
+                    return "";
+                }
+            
+        }
+
         public bool WorldCatAddRecord(string xRecord, string inst,
                               string schema, string holdingCode)
         {
@@ -137,8 +215,9 @@ namespace oclc_api
                 }
                 return true;
             }
-            catch
+            catch (System.Exception response_error)
             {
+                LastError = response_error.ToString();
                 return false;
             }
         }
@@ -303,8 +382,11 @@ namespace oclc_api
                     base_url += "?instSymbol=" + instSymbol;
                 }
 
+                
                 string response = helpers.MakeHTTPRequest(base_url, SetProxy, "GET");
+               
                 Debug_Info = helpers.debug_string + "\n\n" + base_url;
+                //System.Windows.Forms.MessageBox.Show(Debug_Info);
                 LastResponseCode = response;
                 Debug_Info += "\n" + LastResponseCode + "\n";
 
@@ -504,38 +586,61 @@ namespace oclc_api
 
         private string[] ProcessHoldingResponse(string xmlResponse)
         {
-            System.Collections.ArrayList alist = new System.Collections.ArrayList();
-            string sMessage = "";
-
-            System.Xml.XmlDocument objXML = new System.Xml.XmlDocument();
-            objXML.LoadXml(xmlResponse);
-            System.Xml.XmlNamespaceManager nsmgr = new System.Xml.XmlNamespaceManager(objXML.NameTable);
-            nsmgr.AddNamespace("x", "http://www.w3.org/2005/Atom");
-            nsmgr.AddNamespace("os", "http://a9.com/-/spec/opensearch/1.1/");
-            nsmgr.AddNamespace("oclc", "http://worldcat.org/rb/holdinglibrary");
-
-            sMessage = "";
-
-            System.Xml.XmlNodeList nodes = objXML.SelectNodes("/x:feed/x:entry", nsmgr);
-            if (nodes != null)
+            List<string> xml_list = new List<string>();
+            using (System.Xml.XmlReader reader = System.Xml.XmlReader.Create(new System.IO.StringReader(xmlResponse)))
             {
-                foreach (System.Xml.XmlNode node in nodes)
+                reader.MoveToContent();
+                while (reader.Read())
                 {
-                    sMessage = node.SelectSingleNode("x:content/oclc:library/oclc:holdingCode", nsmgr).InnerText;
-                    alist.Add(sMessage);
+                    if (reader.NodeType == System.Xml.XmlNodeType.Element)
+                    {
+                        //if (reader.IsStartElement() || reader.MoveToContent() == System.Xml.XmlNodeType.Element) {
+                            if (reader.LocalName == "holdingCode")
+                            {
+                                //XElement el = XNode.ReadFrom(reader) as XElement;
+                                xml_list.Add(reader.ReadElementContentAsString());
+                            }
+                        //}
+                    }
                 }
             }
 
-            if (alist.Count > 0)
+            if (xml_list.Count > 0)
             {
-                string[] arrOut = new string[alist.Count];
-                alist.CopyTo(arrOut);
-                return arrOut;
+                return xml_list.ToArray();
+            } else
+            {
+                return null;
             }
-
-            return null;
         }
+           //string sMessage = "";
 
+            //System.Xml.XmlDocument objXML = new System.Xml.XmlDocument();
+            //objXML.LoadXml(xmlResponse);
+            //System.Xml.XmlNamespaceManager nsmgr = new System.Xml.XmlNamespaceManager(objXML.NameTable);
+            //nsmgr.AddNamespace("x", "http://www.w3.org/2005/Atom");
+            //nsmgr.AddNamespace("os", "http://a9.com/-/spec/opensearch/1.1/");
+            //nsmgr.AddNamespace("oclc", "http://worldcat.org/rb/holdinglibrary");
+
+            //sMessage = "";
+
+            //System.Xml.XmlNodeList nodes = objXML.SelectNodes("/x:feed/x:entry", nsmgr);
+            //if (nodes != null)
+            //{
+            //    System.Windows.Forms.MessageBox.Show(nodes.Count.ToString());
+            //    foreach (System.Xml.XmlNode node in nodes)
+            //    {
+            //        sMessage = node.SelectSingleNode("x:content/x:library/x:holdingCode", nsmgr).InnerText;
+            //        alist.Add(sMessage);
+            //    }
+            //}
+
+            //if (alist.Count > 0)
+            //{
+            //    string[] arrOut = new string[alist.Count];
+            //    alist.CopyTo(arrOut);
+            //    return arrOut;
+            //}
 
         public string OutputAuthorization_String(string url, string method )
         {
@@ -549,6 +654,19 @@ namespace oclc_api
             return response;
         }
 
+        public string OuputAccessToken()
+        {
+            LastResponseCode = "";
+            helpers.wskey = Wskey;
+            helpers.wskey_secret = Secret_Key;
+            if (helpers.access_token_table != null)
+            {
+                return (string)helpers.access_token_table["access_token"];
+            }
+            string response = helpers.GenerateAccessToken(SetProxy);
+            return response;
+
+        }
         internal string BuildAuthorization(string uri)
         {
             uri += "?principalID=" + PrincipleID + "&principalIDNS=" + PrincipleIDNS;

@@ -106,7 +106,7 @@ namespace oclc_api
             string url = OCLC_WORLDCAT_URL.Replace("{query}", sindex).Replace("{wskey}", wskey);
             QueryURL = url;
 
-            string xml = helpers.MakeHTTPRequest(url, SetProxy);
+            string xml = helpers.MakeOpenHTTPRequest(url, SetProxy, "GET");//helpers.MakeHTTPRequest(url, SetProxy);
             if (xml == null || xml == "")
             {
                 return null;
@@ -158,6 +158,7 @@ namespace oclc_api
             string url = OCLC_WORLDCAT_URL.Replace("{query}", sindex).Replace("{wskey}", wskey);
 
             QueryURL = url;
+            //System.Windows.Forms.MessageBox.Show(QueryURL);
             string xml = helpers.MakeOpenHTTPRequest(url, SetProxy, "GET");
             if (xml == null || xml == "")
             {

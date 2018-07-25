@@ -11,12 +11,23 @@ namespace oclc_api
        
         internal static string OCLC_DATA_URL = @"https://worldcat.org/lbd/data";
         internal static string schema_url = @"http://www.worldcat.org/wskey/v2/hmac/v1";
+        internal static string accesstoken_url = @"https://authn.sd00.worldcat.org/oauth2/accessToken";
+        //internal static string registry_url = @"http://www.worldcat.org/webservices/registry/lookup/Institutions/oclcSymbol/";
+        internal static string registry_url = @"https://worldcat.org/oclc-config/institution/search?q=local.oclcSymbol:";
+        internal static string registry_id_url = @"https://worldcat.org/oclc-config/institution/data/";
         internal static string wskey = "";
         internal static string wskey_secret = "";
         internal static string principleID = "";
         internal static string principleDNS = "";
         internal static string debug_string = "";
+        internal static string attribute_id = "";
+        internal static string institution_id = "";
+        internal static string oclcHoldings = "";
+        internal static string afficliateHoldings = "";
         internal static Random random = new Random((int)DateTime.Now.Ticks);
+        internal static System.Collections.Hashtable access_token_table = null;
+        internal static bool useToken = true;
+        internal static System.Net.WebProxy internal_proxy = null;
 
         internal static string MakeHTTPRequest(string url)
         {
@@ -24,9 +35,41 @@ namespace oclc_api
             return MakeHTTPRequest(url, null, "GET");
         }
 
+        internal static bool IsNumeric(string s, string allowed = "")
+        {
+            if (String.IsNullOrEmpty(s)) return false;
+            for (int x = 0; x < s.Length; x++)
+            {
+                if (Char.IsNumber(s[x]) == false)
+                {
+                    if (allowed.Trim().Length != 0)
+                    {
+                        if (allowed.IndexOf(s[x]) == -1)
+                        {
+                            return false;
+
+                        }
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
         internal static string MakeHTTPRequest(string url, System.Net.WebProxy proxy)
         {
             return MakeHTTPRequest(url, proxy, "GET");
+        }
+
+        internal static void ClearTokens()
+        {
+            if (access_token_table != null)
+            {
+                access_token_table.Clear();
+                access_token_table = null;
+            }
         }
 
         internal static string MakeHTTPRequest(string url, System.Net.WebProxy proxy, string sMethod) {
@@ -36,9 +79,33 @@ namespace oclc_api
             
 
             debug_string = "";
-            string secure_auth = GenerateAuthorization(url, sMethod);
-            debug_string += secure_auth;
+            //string secure_auth = GenerateAuthorization(url, sMethod);
+            string secure_auth = "";
+            if (useToken == true)
+            {
+                if (access_token_table == null)
+                {
+                    GenerateAccessToken(proxy);
+                }
+                else
+                {
+                    DateTime right_now = DateTime.Now;
+                    DateTime expires_at = DateTime.Parse((string)access_token_table["expires_at"]);
+
+                    if (right_now < expires_at)
+                    {
+                        GenerateAccessToken(proxy);
+                    }
+                }
+                secure_auth = "Bearer" + " " + access_token_table["access_token"];
+            }
+            else
+            {
+                secure_auth = GenerateAuthorization(url, sMethod);
+            }
             
+            debug_string += secure_auth;
+            //System.Windows.Forms.MessageBox.Show("secure path: " + secure_auth);
             try
             {
                 wr = (System.Net.HttpWebRequest)System.Net.HttpWebRequest.Create(url);
@@ -65,21 +132,237 @@ namespace oclc_api
 
                 System.IO.StreamReader reader = new System.IO.StreamReader(objStream);
                 string sresults = reader.ReadToEnd();
+
+                //System.Windows.Forms.MessageBox.Show("Results: " + sresults + "\n" + debug_string);
                 reader.Close();
                 return sresults;
             }
             catch (System.Net.WebException web_e)
             {
                 string resp = new System.IO.StreamReader(web_e.Response.GetResponseStream()).ReadToEnd();
+                //System.Windows.Forms.MessageBox.Show(resp);
                 return resp;
             }
             catch (Exception e)
             {
-
+                //System.Windows.Forms.MessageBox.Show(e.ToString());
                 return e.ToString();
             }
         }
 
+        internal static string ResolveRegistrySymbol(string OCLC_Symbol, bool bid = false)
+        {
+            if (String.IsNullOrEmpty(OCLC_Symbol)) { return ""; }
+            System.Net.HttpWebRequest wr;
+
+            try
+            {
+                string url = "";
+                string secure_auth = "";
+                if (bid == false)
+                {
+                    url = registry_url + OCLC_Symbol;
+                    //System.Windows.Forms.MessageBox.Show(url);
+                    secure_auth = GenerateAuthorization(url, "GET");
+                    //System.Windows.Forms.MessageBox.Show(secure_auth);
+                                     
+                } else
+                {
+                    url = registry_id_url + OCLC_Symbol;
+                    if (access_token_table == null)
+                    {
+                        GenerateAccessToken(internal_proxy);
+                    }
+                    else
+                    {
+                        DateTime right_now = DateTime.Now;
+                        DateTime expires_at = DateTime.Parse((string)access_token_table["expires_at"]);
+
+                        if (right_now < expires_at)
+                        {
+                            GenerateAccessToken(internal_proxy);
+                        }
+                    }
+                    secure_auth = "Bearer" + " " + access_token_table["access_token"];
+
+
+                    
+                }
+
+                //System.Windows.Forms.MessageBox.Show(secure_auth);
+                wr = (System.Net.HttpWebRequest)System.Net.HttpWebRequest.Create(url);
+                wr.Headers.Add(System.Net.HttpRequestHeader.Authorization, secure_auth);
+                //wr.ContentType = "application/vnd.oclc.marc21+xml"; // "application/atom+xml;content=\"application/vnd.oclc.marc21+xml\""; // "application/atom+xml";
+                //wr.UserAgent = "MarcEdit";
+                wr.AllowAutoRedirect = false;
+                wr.UserAgent = "MarcEdit";
+
+                wr.Accept = "application/json";
+                wr.Method = "GET";
+
+                try
+                {
+                    System.Net.WebResponse response = wr.GetResponse();
+                    System.IO.Stream response_stream = response.GetResponseStream();
+                    string response_string = new System.IO.StreamReader(response_stream).ReadToEnd();
+                    response_stream.Close();
+
+                    string oclc_regid = "";
+                    if (bid == false)
+                    {
+                        oclc_regid = ReadJson(response_string, "entries[0].content.institution.identifier");
+                        string[] parts = oclc_regid.Split("/".ToCharArray());
+                        return parts.Last<string>();
+
+                    }
+                    else
+                    {
+                        return ReadJson(response_string, "entries[0].content.institution.identifiers.oclcSymbol");
+                    }
+                    //System.Windows.Forms.MessageBox.Show(oclc_regid);
+                    
+                    //System.Windows.Forms.Clipboard.SetText(response_string);
+                    //System.Windows.Forms.MessageBox.Show(response_string);
+                    //if (response.Headers["Location"] != null)
+                    //{
+                    //    string id = response.Headers["Location"];
+                    //    Console.WriteLine(id);
+
+                    //    string[] parts = id.Split("/".ToCharArray());
+                    //    return parts.Last<string>();
+                    //}
+                }
+                catch (System.Exception innererror) { } //System.Windows.Forms.MessageBox.Show("Error in inner loop" + "\n" + innererror.ToString()); }
+            }
+            catch { } // System.Windows.Forms.MessageBox.Show("Error in outer loop"); }
+
+            return "";
+
+        }
+
+        
+
+        internal static string ReadJson(string json, string path)
+        {
+            Newtonsoft.Json.Linq.JToken jtoken = Newtonsoft.Json.Linq.JObject.Parse(json);
+            //Newtonsoft.Json.Linq.JToken jttoken = Newtonsoft.Json.Linq.JObject.Parse(work_tmp);
+            //int page = (int)token.SelectToken("page");
+            //int totalPages = (int)token.SelectToken("total_pages");
+            //
+
+            string jstring = "";
+
+            jstring = (string)jtoken.SelectToken(path);
+
+            //System.Windows.Forms.MessageBox.Show(turi);
+            if (!string.IsNullOrEmpty(jstring))
+            {
+                return jstring;
+            }
+            else
+            {
+                return "";
+            }
+            
+        }
+        internal static string GenerateAccessToken(System.Net.WebProxy proxy)
+        {
+            string timestamp = ConvertToTimestamp(DateTime.UtcNow);
+            string noce = RandomString(30);
+
+            if (attribute_id == "") { attribute_id = institution_id; }
+
+            string uri = accesstoken_url + "?grant_type=client_credentials&authenticatingInstitutionId=" + institution_id +
+                                           "&contextInstitutionId=" + attribute_id + "&scope=WorldCatMetadataAPI";
+            string digest = signature_base_string(timestamp, noce, uri, "POST");
+
+            //System.Windows.Forms.MessageBox.Show(uri + "\nattributid: " + attribute_id);
+            /*
+             * auth  = ""
+            auth += "#{scheme_url} "
+            auth += "clientId=\"#{client_id}\", "
+            auth += "timestamp=\"#{req_timestamp}\", "
+            auth += "nonce=\"#{req_nonce}\", "
+            auth += "signature=\"#{signature(signature_base)}\""
+            if @principal_on_header and !@principal_id.nil?
+            auth += ", principalID=\"#{@principal_id}\", principalIDNS=\"#{@principal_idns}\""
+
+             * */
+            /*
+             * digest = HMAC-SHA256 ( wskey_secret, prehashed_string )
+signature = base64 ( digest )
+            */
+
+            string auth = "";
+            auth += schema_url + " ";
+            auth += "clientId=\"" + wskey + "\", ";
+            auth += "timestamp=\"" + timestamp + "\", ";
+            auth += "nonce=\"" + noce + "\", ";
+            auth += "signature=\"" + encrypt(digest) + "\", ";
+            auth += "principalID=\"" + principleID + "\", ";
+            auth += "principalIDNS=\"" + principleDNS + "\"";
+
+            debug_string += "\n\n" + auth + "\n\n";
+
+            System.Net.HttpWebRequest wr;
+            System.IO.Stream objStream = null;
+            //System.Windows.Forms.MessageBox.Show(debug_string);
+            //System.Windows.Forms.MessageBox.Show(uri);
+            try
+            {
+                wr = (System.Net.HttpWebRequest)System.Net.HttpWebRequest.Create(uri);
+                if (proxy != null)
+                {
+                    wr.Proxy = proxy;
+                }
+
+                //System.Windows.Forms.MessageBox.Show(auth);
+                wr.Headers.Add(System.Net.HttpRequestHeader.Authorization, auth);
+                wr.ContentType = "application/json";
+                //wr.Accept = "application/json";
+                //wr.Host = accesstoken_url;
+                wr.ContentLength = 0;
+                wr.UserAgent = "MarcEdit";
+
+                wr.Method = "POST";
+
+                
+
+                System.Net.WebResponse response = wr.GetResponse();
+                objStream = response.GetResponseStream();
+                System.IO.StreamReader reader = new System.IO.StreamReader(objStream);
+                System.Threading.Thread.Sleep(300); //small sleep to ensure that the stream is captured?
+                string sresults = reader.ReadToEnd();
+                reader.Close();
+                //System.Windows.Forms.MessageBox.Show("results: " + sresults);
+
+                access_token_table = ParseJson(sresults);
+
+                return "true";
+
+            }
+            catch (System.Net.WebException web_e)
+            {
+                string resp = new System.IO.StreamReader(web_e.Response.GetResponseStream()).ReadToEnd();
+                //System.Windows.Forms.MessageBox.Show(resp + "\n" + web_e.ToString());
+                return resp;
+            }
+            catch (Exception e)
+            {
+                //System.Windows.Forms.MessageBox.Show(e.ToString());
+                return e.ToString();
+            }
+
+            
+
+
+        }
+
+        internal static  System.Collections.Hashtable ParseJson(string json)
+        {
+            System.Web.Script.Serialization.JavaScriptSerializer jsonobject = new System.Web.Script.Serialization.JavaScriptSerializer();
+            return jsonobject.Deserialize<System.Collections.Hashtable>(json);            
+        }
         internal static string GenerateAuthorization(string uri, string method)
         {
             string timestamp = ConvertToTimestamp(DateTime.UtcNow);
@@ -226,7 +509,30 @@ signature = base64 ( digest )
             System.IO.Stream objStream = null;
 
             debug_string = "";
-            string secure_auth = GenerateAuthorization(url, sMethod);
+
+            string secure_auth = "";
+            if (useToken == true)
+            {
+                if (access_token_table == null)
+                {
+                    GenerateAccessToken(proxy);
+                }
+                else
+                {
+                    DateTime right_now = DateTime.Now;
+                    DateTime expires_at = DateTime.Parse((string)access_token_table["expires_at"]);
+
+                    if (right_now < expires_at)
+                    {
+                        GenerateAccessToken(proxy);
+                    }
+                }
+                secure_auth = "Bearer" + " " + access_token_table["access_token"];
+            }
+            else
+            {
+                secure_auth = GenerateAuthorization(url, sMethod);
+            }
             debug_string += secure_auth;
 
             try
