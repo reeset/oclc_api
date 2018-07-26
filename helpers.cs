@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace oclc_api
 {
-    internal static class helpers
+    internal class helpers
     {
        
         internal static string OCLC_DATA_URL = @"https://worldcat.org/lbd/data";
@@ -29,11 +29,7 @@ namespace oclc_api
         internal static bool useToken = true;
         internal static System.Net.WebProxy internal_proxy = null;
 
-        internal static string MakeHTTPRequest(string url)
-        {
-            
-            return MakeHTTPRequest(url, null, "GET");
-        }
+        
 
         internal static bool IsNumeric(string s, string allowed = "")
         {
@@ -58,10 +54,8 @@ namespace oclc_api
             }
             return true;
         }
-        internal static string MakeHTTPRequest(string url, System.Net.WebProxy proxy)
-        {
-            return MakeHTTPRequest(url, proxy, "GET");
-        }
+
+        #region Authentication Code
 
         internal static void ClearTokens()
         {
@@ -69,84 +63,6 @@ namespace oclc_api
             {
                 access_token_table.Clear();
                 access_token_table = null;
-            }
-        }
-
-        internal static string MakeHTTPRequest(string url, System.Net.WebProxy proxy, string sMethod) {
-            System.Net.HttpWebRequest wr;
-            System.IO.Stream objStream = null;
-
-            
-
-            debug_string = "";
-            //string secure_auth = GenerateAuthorization(url, sMethod);
-            string secure_auth = "";
-            if (useToken == true)
-            {
-                if (access_token_table == null)
-                {
-                    GenerateAccessToken(proxy);
-                }
-                else
-                {
-                    DateTime right_now = DateTime.Now;
-                    DateTime expires_at = DateTime.Parse((string)access_token_table["expires_at"]);
-
-                    if (right_now < expires_at)
-                    {
-                        GenerateAccessToken(proxy);
-                    }
-                }
-                secure_auth = "Bearer" + " " + access_token_table["access_token"];
-            }
-            else
-            {
-                secure_auth = GenerateAuthorization(url, sMethod);
-            }
-            
-            debug_string += secure_auth;
-            //System.Windows.Forms.MessageBox.Show("secure path: " + secure_auth);
-            try
-            {
-                wr = (System.Net.HttpWebRequest)System.Net.HttpWebRequest.Create(url);
-                if (proxy != null)
-                {
-                    wr.Proxy = proxy;
-                }
-
-                wr.UserAgent = "MarcEdit";
-                wr.Headers.Add(System.Net.HttpRequestHeader.Authorization, secure_auth);
-                wr.ContentType = "application/atom+xml";
-                wr.Method = sMethod;
-            
-                System.Net.WebResponse response = wr.GetResponse();
-                for (int i = 0; i < response.Headers.Count; ++i)
-                    debug_string += "Key: " + response.Headers.Keys[i] + "\n" +
-                                    "Value: " + response.Headers[i];
-
-                objStream = response.GetResponseStream();
-
-                
-                // Releases the resources of the response.
-
-
-                System.IO.StreamReader reader = new System.IO.StreamReader(objStream);
-                string sresults = reader.ReadToEnd();
-
-                //System.Windows.Forms.MessageBox.Show("Results: " + sresults + "\n" + debug_string);
-                reader.Close();
-                return sresults;
-            }
-            catch (System.Net.WebException web_e)
-            {
-                string resp = new System.IO.StreamReader(web_e.Response.GetResponseStream()).ReadToEnd();
-                //System.Windows.Forms.MessageBox.Show(resp);
-                return resp;
-            }
-            catch (Exception e)
-            {
-                //System.Windows.Forms.MessageBox.Show(e.ToString());
-                return e.ToString();
             }
         }
 
@@ -165,8 +81,9 @@ namespace oclc_api
                     //System.Windows.Forms.MessageBox.Show(url);
                     secure_auth = GenerateAuthorization(url, "GET");
                     //System.Windows.Forms.MessageBox.Show(secure_auth);
-                                     
-                } else
+
+                }
+                else
                 {
                     url = registry_id_url + OCLC_Symbol;
                     if (access_token_table == null)
@@ -186,7 +103,7 @@ namespace oclc_api
                     secure_auth = "Bearer" + " " + access_token_table["access_token"];
 
 
-                    
+
                 }
 
                 //System.Windows.Forms.MessageBox.Show(secure_auth);
@@ -218,19 +135,7 @@ namespace oclc_api
                     else
                     {
                         return ReadJson(response_string, "entries[0].content.institution.identifiers.oclcSymbol");
-                    }
-                    //System.Windows.Forms.MessageBox.Show(oclc_regid);
-                    
-                    //System.Windows.Forms.Clipboard.SetText(response_string);
-                    //System.Windows.Forms.MessageBox.Show(response_string);
-                    //if (response.Headers["Location"] != null)
-                    //{
-                    //    string id = response.Headers["Location"];
-                    //    Console.WriteLine(id);
-
-                    //    string[] parts = id.Split("/".ToCharArray());
-                    //    return parts.Last<string>();
-                    //}
+                    }                    
                 }
                 catch (System.Exception innererror) { } //System.Windows.Forms.MessageBox.Show("Error in inner loop" + "\n" + innererror.ToString()); }
             }
@@ -240,17 +145,12 @@ namespace oclc_api
 
         }
 
-        
+
 
         internal static string ReadJson(string json, string path)
         {
             Newtonsoft.Json.Linq.JToken jtoken = Newtonsoft.Json.Linq.JObject.Parse(json);
-            //Newtonsoft.Json.Linq.JToken jttoken = Newtonsoft.Json.Linq.JObject.Parse(work_tmp);
-            //int page = (int)token.SelectToken("page");
-            //int totalPages = (int)token.SelectToken("total_pages");
-            //
-
-            string jstring = "";
+                        string jstring = "";
 
             jstring = (string)jtoken.SelectToken(path);
 
@@ -263,10 +163,10 @@ namespace oclc_api
             {
                 return "";
             }
-            
+
         }
         internal static string GenerateAccessToken(System.Net.WebProxy proxy)
-        {
+        {           
             string timestamp = ConvertToTimestamp(DateTime.UtcNow);
             string noce = RandomString(30);
 
@@ -275,23 +175,6 @@ namespace oclc_api
             string uri = accesstoken_url + "?grant_type=client_credentials&authenticatingInstitutionId=" + institution_id +
                                            "&contextInstitutionId=" + attribute_id + "&scope=WorldCatMetadataAPI";
             string digest = signature_base_string(timestamp, noce, uri, "POST");
-
-            //System.Windows.Forms.MessageBox.Show(uri + "\nattributid: " + attribute_id);
-            /*
-             * auth  = ""
-            auth += "#{scheme_url} "
-            auth += "clientId=\"#{client_id}\", "
-            auth += "timestamp=\"#{req_timestamp}\", "
-            auth += "nonce=\"#{req_nonce}\", "
-            auth += "signature=\"#{signature(signature_base)}\""
-            if @principal_on_header and !@principal_id.nil?
-            auth += ", principalID=\"#{@principal_id}\", principalIDNS=\"#{@principal_idns}\""
-
-             * */
-            /*
-             * digest = HMAC-SHA256 ( wskey_secret, prehashed_string )
-signature = base64 ( digest )
-            */
 
             string auth = "";
             auth += schema_url + " ";
@@ -318,7 +201,10 @@ signature = base64 ( digest )
 
                 //System.Windows.Forms.MessageBox.Show(auth);
                 wr.Headers.Add(System.Net.HttpRequestHeader.Authorization, auth);
+                System.Diagnostics.Debug.Print(auth);
+
                 wr.ContentType = "application/json";
+                wr.Accept = "application/json";
                 //wr.Accept = "application/json";
                 //wr.Host = accesstoken_url;
                 wr.ContentLength = 0;
@@ -326,16 +212,24 @@ signature = base64 ( digest )
 
                 wr.Method = "POST";
 
-                
+
 
                 System.Net.WebResponse response = wr.GetResponse();
                 objStream = response.GetResponseStream();
                 System.IO.StreamReader reader = new System.IO.StreamReader(objStream);
-                System.Threading.Thread.Sleep(300); //small sleep to ensure that the stream is captured?
-                string sresults = reader.ReadToEnd();
+                //System.Threading.Thread.Sleep(300); //small sleep to ensure that the stream is captured?
+                //string sresults = reader.ReadToEnd();
+                string sresults = "";
+                char[] readBuffer = new char[256];
+                int count = reader.Read(readBuffer, 0, 256);
+                while (count > 0)
+                {
+                    sresults += new string(readBuffer, 0, count);
+                    count = reader.Read(readBuffer, 0, 256);
+                }
                 reader.Close();
                 //System.Windows.Forms.MessageBox.Show("results: " + sresults);
-
+                System.Diagnostics.Debug.Print(sresults);
                 access_token_table = ParseJson(sresults);
 
                 return "true";
@@ -352,41 +246,22 @@ signature = base64 ( digest )
                 //System.Windows.Forms.MessageBox.Show(e.ToString());
                 return e.ToString();
             }
-
-            
-
-
         }
 
-        internal static  System.Collections.Hashtable ParseJson(string json)
+        internal static System.Collections.Hashtable ParseJson(string json)
         {
-            System.Web.Script.Serialization.JavaScriptSerializer jsonobject = new System.Web.Script.Serialization.JavaScriptSerializer();
-            return jsonobject.Deserialize<System.Collections.Hashtable>(json);            
+            //standards based deserialize -- this is supported on the mac side.
+            //System.Web.Script.Serialization.JavaScriptSerializer jsonobject = new System.Web.Script.Serialization.JavaScriptSerializer();
+            return Newtonsoft.Json.JsonConvert.DeserializeObject<System.Collections.Hashtable>(json);
         }
         internal static string GenerateAuthorization(string uri, string method)
         {
             string timestamp = ConvertToTimestamp(DateTime.UtcNow);
             string noce = RandomString(30);
-            
 
-            
+
+
             string digest = signature_base_string(timestamp, noce, uri, method);
-
-            /*
-             * auth  = ""
-            auth += "#{scheme_url} "
-            auth += "clientId=\"#{client_id}\", "
-            auth += "timestamp=\"#{req_timestamp}\", "
-            auth += "nonce=\"#{req_nonce}\", "
-            auth += "signature=\"#{signature(signature_base)}\""
-            if @principal_on_header and !@principal_id.nil?
-            auth += ", principalID=\"#{@principal_id}\", principalIDNS=\"#{@principal_idns}\""
-
-             * */   
-            /*
-             * digest = HMAC-SHA256 ( wskey_secret, prehashed_string )
-signature = base64 ( digest )
-            */
 
             string auth = "";
             auth += schema_url + " ";
@@ -400,18 +275,12 @@ signature = base64 ( digest )
             debug_string += "\n\n" + auth + "\n\n";
             return auth;
 
-            
+
         }
 
         private static string encrypt(string digest)
         {
-            /*
-             *     digest = OpenSSL::Digest::SHA256.new
-            hmac = OpenSSL::HMAC.digest( digest, @secret, base_string )
-            Base64.encode64( hmac ).chomp.gsub( /\n/, '' )
-
-             * */
-            
+ 
             System.Security.Cryptography.HMACSHA256 objhmac = new System.Security.Cryptography.HMACSHA256(new ASCIIEncoding().GetBytes(wskey_secret));
             string signature = Convert.ToBase64String(objhmac.ComputeHash(new ASCIIEncoding().GetBytes(digest))).TrimEnd("\n".ToCharArray()).Replace("\n", "");
             return signature;
@@ -419,23 +288,6 @@ signature = base64 ( digest )
 
         private static string signature_base_string(string timestamp, string noce, string uri, string method)
         {
-
-            /*
-             * def signature_base_string(req_timestamp, req_nonce, http_body, http_method, url)
-            str  = ""
-            str += "#{client_id}\n"
-            str += "#{req_timestamp}\n"
-            str += "#{req_nonce}\n"
-            str += "\n" # Not using a body hash
-            str += "#{http_method}\n"
-            str += "www.oclc.org\n"
-            str += "443\n"
-            str += "/wskey\n"
-            str += "#{normalized_query_str(url)}\n" if normalized_query_str(url).strip != ''
-            puts "'#{str}'" if @debug_mode
-            str
-            end
-            */
 
             string str = "";
 
@@ -447,7 +299,7 @@ signature = base64 ( digest )
             str += "www.oclc.org\n";
             str += "443\n";
             str += "/wskey\n";
-            str += normalize_query_string(uri) +"\n";
+            str += normalize_query_string(uri) + "\n";
 
             debug_string += str + "\n\n";
             return str;
@@ -459,8 +311,10 @@ signature = base64 ( digest )
             System.Collections.ArrayList escaped_params = new System.Collections.ArrayList();
             System.Uri main_uri = new Uri(uri);
             string[] query_params = main_uri.Query.Substring(1).Split("&".ToCharArray());
-            foreach (string i_param in query_params) {
-                if (i_param.Trim().Length > 0) {
+            foreach (string i_param in query_params)
+            {
+                if (i_param.Trim().Length > 0)
+                {
                     string key = i_param.Split("=".ToCharArray())[0];
                     string val = i_param.Split("=".ToCharArray())[1];
                     val = System.Uri.UnescapeDataString(val);
@@ -502,7 +356,412 @@ signature = base64 ( digest )
 
         }
 
+        #endregion
+
+        #region MakeHTTPRequest
+        internal static string MakeHTTPRequest(string url)
+        {
+
+            return MakeHTTPRequest(url, null, "GET");
+        }
+
+        internal static string MakeHTTPRequest(string url, System.Net.WebProxy proxy)
+        {
+            return MakeHTTPRequest(url, proxy, "GET");
+        }
+
+        
+        internal static string MakeHTTPRequest(string url, System.Net.WebProxy proxy, string sMethod, string accept_code = "application/atom+xml")
+        {
+            System.Net.Http.HttpClient client = null;            
+
+            //debug_string = "";
+            //string secure_auth = GenerateAuthorization(url, sMethod);
+            string secure_auth = "";
+            
+
+            System.Diagnostics.Debug.Print(secure_auth);
+            System.Diagnostics.Debug.Print(url);
+            debug_string += secure_auth;
+            //System.Windows.Forms.MessageBox.Show("secure path: " + secure_auth);
+            try
+            {
+                debug_string += "Create URL: " + url;
+
+                System.Net.Http.HttpClientHandler httpClientHandler = new System.Net.Http.HttpClientHandler();
+                if (proxy != null)
+                {
+                    httpClientHandler.Proxy = proxy;
+                }
+
+                client = new System.Net.Http.HttpClient(httpClientHandler);
+                //client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(secure_auth);
+                if (useToken == true)
+                {
+                    if (access_token_table == null)
+                    {
+                        ClearTokens();
+                        GenerateAccessToken(proxy);
+                    }
+                    else
+                    {
+                        DateTime right_now = DateTime.Now;
+                        DateTime expires_at = DateTime.Parse((string)access_token_table["expires_at"]);
+
+                        if (right_now < expires_at)
+                        {
+                            ClearTokens();
+                            GenerateAccessToken(proxy);
+                        }
+                    }
+                    client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", access_token_table["access_token"].ToString());
+                    secure_auth = "Bearer" + " " + access_token_table["access_token"];
+                }
+                else
+                {
+                    secure_auth = GenerateAuthorization(url, sMethod);
+                    client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Authorization", secure_auth);
+                }
+                client.DefaultRequestHeaders.Add("User-Agent", "MarcEdit");
+                //client.DefaultRequestHeaders.Add("Content-Type", "application/atom+xml");
+                client.DefaultRequestHeaders.TryAddWithoutValidation("Accept", accept_code);
+                client.DefaultRequestHeaders.TryAddWithoutValidation("Content-Type", "application/atom+xml");
+
+                System.Net.Http.HttpResponseMessage response = null;
+                switch (sMethod.ToLower())
+                {
+                    case "get":
+                        response = client.GetAsync(url).Result;
+                        break;
+                    case "delete":
+                        response = client.DeleteAsync(url).Result;
+                        break;
+                    case "post":
+                        response = client.PostAsync(url, new System.Net.Http.StringContent("")).Result;
+                        break;
+                    case "put":
+                        response = client.PutAsync(url, new System.Net.Http.StringContent("")).Result;
+                        break;
+
+                }
+                
+                System.Diagnostics.Debug.Print("response message");
+                //response.EnsureSuccessStatusCode();
+                string sresults = response.Content.ReadAsStringAsync().Result;
+                client.Dispose();
+                return sresults;
+            }
+            catch (System.Net.Http.HttpRequestException re)
+            {
+                return re.ToString();
+            }
+            catch (System.Net.WebException web_e)
+            {
+                System.Diagnostics.Debug.Print("web exception: " + web_e.ToString());
+                string resp = new System.IO.StreamReader(web_e.Response.GetResponseStream()).ReadToEnd();
+                System.Diagnostics.Debug.Print("WebException: " + resp);
+                //System.Windows.Forms.MessageBox.Show(resp);
+                return resp;
+            }
+            catch (Exception e)
+            {
+                System.Diagnostics.Debug.Print("General Error: " + e.ToString());
+                //System.Windows.Forms.MessageBox.Show(e.ToString());
+                return e.ToString();
+            }
+        }
+
+
+        #endregion
+
+        #region MakeHTTP_POST_PUT_Request
+
         internal static string MakeHTTP_POST_PUT_Request(string url, System.Net.WebProxy proxy, 
+                                                         string sMethod, string rec)
+        {
+            System.Net.Http.HttpClient client = null;
+
+            //debug_string = "";
+            //string secure_auth = GenerateAuthorization(url, sMethod);
+            string secure_auth = "";
+
+
+            System.Diagnostics.Debug.Print(secure_auth);
+            System.Diagnostics.Debug.Print(url);
+            debug_string += secure_auth;
+            //System.Windows.Forms.MessageBox.Show("secure path: " + secure_auth);
+            try
+            {
+                debug_string += "Create URL: " + url;
+
+                System.Net.Http.HttpClientHandler httpClientHandler = new System.Net.Http.HttpClientHandler();
+                if (proxy != null)
+                {
+                    httpClientHandler.Proxy = proxy;
+                }
+
+                client = new System.Net.Http.HttpClient(httpClientHandler);
+                //client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(secure_auth);
+                if (useToken == true)
+                {
+                    if (access_token_table == null)
+                    {
+                        ClearTokens();
+                        GenerateAccessToken(proxy);
+                    }
+                    else
+                    {
+                        DateTime right_now = DateTime.Now;
+                        DateTime expires_at = DateTime.Parse((string)access_token_table["expires_at"]);
+
+                        if (right_now < expires_at)
+                        {
+                            ClearTokens();
+                            GenerateAccessToken(proxy);
+                        }
+                    }
+                    client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", access_token_table["access_token"].ToString());
+                    secure_auth = "Bearer" + " " + access_token_table["access_token"];
+                }
+                else
+                {
+                    secure_auth = GenerateAuthorization(url, sMethod);
+                    client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Authorization", secure_auth);
+                }
+                client.DefaultRequestHeaders.Add("User-Agent", "MarcEdit");
+                //client.DefaultRequestHeaders.Add("Content-Type", "application/atom+xml");
+                
+
+                client.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "application/atom+xml;content=\"application/vnd.oclc.marc21+xml\"");
+                client.DefaultRequestHeaders.TryAddWithoutValidation("Content-Type", "application/vnd.oclc.marc21+xml");
+
+                System.Net.Http.HttpResponseMessage response = null;
+                switch (sMethod.ToLower())
+                {                     
+                    case "post":
+                        response = client.PostAsync(url, new System.Net.Http.StringContent(rec, System.Text.Encoding.UTF8, "application/vnd.oclc.marc21+xml")).Result;
+                        break;
+                    case "put":
+                        response = client.PutAsync(url, new System.Net.Http.StringContent(rec, System.Text.Encoding.UTF8, "application/vnd.oclc.marc21+xml")).Result;
+                        break;
+
+                }
+
+                string sresults = response.Content.ReadAsStringAsync().Result;
+                client.Dispose();
+                //System.Windows.Forms.MessageBox.Show("results: " + sresults);
+                return sresults;
+
+            }
+            catch (System.Net.WebException web_e)
+            {
+                string resp = new System.IO.StreamReader(web_e.Response.GetResponseStream()).ReadToEnd();
+                return resp;
+            }
+            catch (Exception e)
+            {
+
+                return e.ToString();
+            }
+        }
+
+        #endregion
+        #region MakeOpenHTTPRequests
+        internal static string MakeOpenHTTPRequest(string url)
+        {
+            return MakeOpenHTTPRequest(url, null, "GET");
+        }
+
+        
+        /// <summary>
+        /// This is the non-authorized version of the HTTP request function
+        /// </summary>
+        /// <param name="url"></param>
+        /// <param name="proxy"></param>
+        /// <param name="sMethod"></param>
+        /// <returns></returns>
+        internal static string MakeOpenHTTPRequest(string url, System.Net.WebProxy proxy, string sMethod)
+        {
+            System.Net.HttpWebRequest wr;
+            System.IO.Stream objStream = null;
+            debug_string = "";
+
+            try
+            {
+                wr = (System.Net.HttpWebRequest)System.Net.HttpWebRequest.Create(url);
+                if (proxy != null)
+                {
+                    wr.Proxy = proxy;
+                }
+
+                wr.UserAgent = "MarcEdit";
+                wr.Method = sMethod;
+                
+                System.Net.WebResponse response = wr.GetResponse();
+                objStream = response.GetResponseStream();
+
+
+                // Releases the resources of the response.
+
+
+                System.IO.StreamReader reader = new System.IO.StreamReader(objStream);
+                string sresults = reader.ReadToEnd();
+                reader.Close();
+                return sresults;
+            }
+            catch (Exception e)
+            {
+
+                return "";
+            }
+        }
+
+        #endregion
+
+        #region IsError
+        internal static bool IsError(string xmlResponse, out string sMessage)
+        {
+            System.Xml.XmlDocument objXML = new System.Xml.XmlDocument();
+            objXML.LoadXml(xmlResponse);
+            System.Xml.XmlNamespaceManager nsmgr = new System.Xml.XmlNamespaceManager(objXML.NameTable);
+            nsmgr.AddNamespace("x", objXML.DocumentElement.NamespaceURI);
+            sMessage = "";
+
+            if (objXML.SelectSingleNode("/x:error/x:code", nsmgr) != null)
+            {
+                //System.Windows.Forms.MessageBox.Show(objXML.SelectSingleNode("/x:error/x:code", nsmgr).InnerText);
+                sMessage = objXML.SelectSingleNode("/x:error/x:code", nsmgr).InnerText + ": " + objXML.SelectSingleNode("/x:error/x:message", nsmgr).InnerText;
+                if (objXML.SelectSingleNode("/x:error/detail", nsmgr) !=null) {
+                    //System.Windows.Forms.MessageBox.Show("here");
+                    foreach (System.Xml.XmlNode node in objXML.SelectNodes("/x:error/x:detail/validationErrors")) {
+                        sMessage += ": " + node.SelectSingleNode("validationError/message").InnerText;
+                    }
+                }
+                return true;
+            }
+            
+            return false;
+        }
+        #endregion
+
+
+        /*
+         * old code that doesn't work on macos
+         * **************************************/
+        #region OldMakeHTTPRequest
+        internal static string MakeHTTPRequest2(string url, System.Net.WebProxy proxy, string sMethod, string accept_code = "application/atom+xml")
+        {
+            System.Net.HttpWebRequest wr;
+            System.IO.Stream objStream = null;
+
+            System.Net.ServicePointManager.ServerCertificateValidationCallback += new System.Net.Security.RemoteCertificateValidationCallback(AcceptAllCertifications);
+
+
+            //debug_string = "";
+            //string secure_auth = GenerateAuthorization(url, sMethod);
+            string secure_auth = "";
+            if (useToken == true)
+            {
+                if (access_token_table == null)
+                {
+                    ClearTokens();
+                    GenerateAccessToken(proxy);
+                }
+                else
+                {
+                    DateTime right_now = DateTime.Now;
+                    DateTime expires_at = DateTime.Parse((string)access_token_table["expires_at"]);
+
+                    if (right_now < expires_at)
+                    {
+                        ClearTokens();
+                        GenerateAccessToken(proxy);
+                    }
+                }
+                secure_auth = "Bearer" + " " + access_token_table["access_token"];
+            }
+            else
+            {
+                secure_auth = GenerateAuthorization(url, sMethod);
+            }
+
+            System.Diagnostics.Debug.Print(secure_auth);
+            System.Diagnostics.Debug.Print(url);
+            debug_string += secure_auth;
+            //System.Windows.Forms.MessageBox.Show("secure path: " + secure_auth);
+            try
+            {
+                debug_string += "Create URL: " + url;
+
+                wr = (System.Net.HttpWebRequest)System.Net.HttpWebRequest.Create(url);
+                if (proxy != null)
+                {
+                    wr.Proxy = proxy;
+                }
+
+                System.Diagnostics.Debug.Print(wr.GetType().ToString());
+                wr.UserAgent = "MarcEdit";
+                wr.Headers.Add(System.Net.HttpRequestHeader.Authorization, secure_auth);
+                wr.AllowReadStreamBuffering = false;
+                wr.AllowWriteStreamBuffering = false;
+                wr.ReadWriteTimeout = 15000;
+                wr.ContentType = "application/atom+xml";
+                //wr.Accept = accept_code;
+                wr.Method = sMethod;
+
+
+                System.Diagnostics.Debug.Print("Making the request");
+                System.Net.HttpWebResponse response = (System.Net.HttpWebResponse)wr.GetResponse();
+                //System.Net.WebResponse response = wr.GetResponse();
+                System.Diagnostics.Debug.Print("before headers");
+
+                for (int i = 0; i < response.Headers.Count; ++i)
+                    debug_string += "Key: " + response.Headers.Keys[i] + "\n" +
+                                    "Value: " + response.Headers[i];
+
+                System.Diagnostics.Debug.Print(debug_string);
+                objStream = response.GetResponseStream();
+
+
+                // Releases the resources of the response.
+
+                System.Diagnostics.Debug.Print("making request for stream");
+                System.IO.StreamReader reader = new System.IO.StreamReader(objStream);
+                //System.Threading.Thread.Sleep(1000);
+                System.Diagnostics.Debug.Print("Reading data");
+                string sresults = "";
+                char[] readBuffer = new char[256];
+                int count = reader.Read(readBuffer, 0, 256);
+                while (count > 0)
+                {
+                    sresults += new string(readBuffer, 0, count);
+                    count = reader.Read(readBuffer, 0, 256);
+                }
+                //string sresults = reader.ReadToEnd();
+
+                //System.Windows.Forms.MessageBox.Show("Results: " + sresults + "\n" + debug_string);
+                reader.Close();
+                return sresults;
+            }
+            catch (System.Net.WebException web_e)
+            {
+                System.Diagnostics.Debug.Print("web exception: " + web_e.ToString());
+                string resp = new System.IO.StreamReader(web_e.Response.GetResponseStream()).ReadToEnd();
+                System.Diagnostics.Debug.Print("WebException: " + resp);
+                //System.Windows.Forms.MessageBox.Show(resp);
+                return resp;
+            }
+            catch (Exception e)
+            {
+                System.Diagnostics.Debug.Print("General Error: " + e.ToString());
+                //System.Windows.Forms.MessageBox.Show(e.ToString());
+                return e.ToString();
+            }
+        }
+        #endregion
+
+        #region OldMakeHTTP_POST_PUT_REQUEST
+        internal static string MakeHTTP_POST_PUT_Request2(string url, System.Net.WebProxy proxy,
                                                          string sMethod, string rec)
         {
             System.Net.HttpWebRequest wr;
@@ -544,8 +803,9 @@ signature = base64 ( digest )
                 }
 
                 wr.Headers.Add(System.Net.HttpRequestHeader.Authorization, secure_auth);
-                
+
                 wr.ContentType = "application/vnd.oclc.marc21+xml"; // "application/atom+xml;content=\"application/vnd.oclc.marc21+xml\""; // "application/atom+xml";
+                wr.Accept = "application/atom+xml;content=\"application/vnd.oclc.marc21+xml\"";
                 wr.UserAgent = "MarcEdit";
 
                 wr.Method = sMethod;
@@ -576,84 +836,7 @@ signature = base64 ( digest )
                 return e.ToString();
             }
         }
-
-        internal static string MakeOpenHTTPRequest(string url)
-        {
-            return MakeOpenHTTPRequest(url, null, "GET");
-        }
-
-
-        /// <summary>
-        /// This is the non-authorized version of the HTTP request function
-        /// </summary>
-        /// <param name="url"></param>
-        /// <param name="proxy"></param>
-        /// <param name="sMethod"></param>
-        /// <returns></returns>
-        internal static string MakeOpenHTTPRequest(string url, System.Net.WebProxy proxy, string sMethod)
-        {
-            System.Net.HttpWebRequest wr;
-            System.IO.Stream objStream = null;
-
-
-
-            debug_string = "";
-
-            try
-            {
-                wr = (System.Net.HttpWebRequest)System.Net.HttpWebRequest.Create(url);
-                if (proxy != null)
-                {
-                    wr.Proxy = proxy;
-                }
-
-                wr.UserAgent = "MarcEdit";
-                wr.Method = sMethod;
-                
-                System.Net.WebResponse response = wr.GetResponse();
-                objStream = response.GetResponseStream();
-
-
-                // Releases the resources of the response.
-
-
-                System.IO.StreamReader reader = new System.IO.StreamReader(objStream);
-                string sresults = reader.ReadToEnd();
-                reader.Close();
-                return sresults;
-            }
-            catch (Exception e)
-            {
-
-                return "";
-            }
-        }
-
-        internal static bool IsError(string xmlResponse, out string sMessage)
-        {
-            System.Xml.XmlDocument objXML = new System.Xml.XmlDocument();
-            objXML.LoadXml(xmlResponse);
-            System.Xml.XmlNamespaceManager nsmgr = new System.Xml.XmlNamespaceManager(objXML.NameTable);
-            nsmgr.AddNamespace("x", objXML.DocumentElement.NamespaceURI);
-            sMessage = "";
-
-            if (objXML.SelectSingleNode("/x:error/x:code", nsmgr) != null)
-            {
-                //System.Windows.Forms.MessageBox.Show(objXML.SelectSingleNode("/x:error/x:code", nsmgr).InnerText);
-                sMessage = objXML.SelectSingleNode("/x:error/x:code", nsmgr).InnerText + ": " + objXML.SelectSingleNode("/x:error/x:message", nsmgr).InnerText;
-                if (objXML.SelectSingleNode("/x:error/detail", nsmgr) !=null) {
-                    //System.Windows.Forms.MessageBox.Show("here");
-                    foreach (System.Xml.XmlNode node in objXML.SelectNodes("/x:error/x:detail/validationErrors")) {
-                        sMessage += ": " + node.SelectSingleNode("validationError/message").InnerText;
-                    }
-                }
-                return true;
-            }
-            
-            return false;
-        }
-
-
+        #endregion
         private static bool AcceptAllCertifications(object sender, System.Security.Cryptography.X509Certificates.X509Certificate certification, System.Security.Cryptography.X509Certificates.X509Chain chain, System.Net.Security.SslPolicyErrors sslPolicyErrors)
         {
             return true;

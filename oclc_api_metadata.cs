@@ -264,13 +264,15 @@ namespace oclc_api
                 string base_url = WorldCat_Service_URI;
                 helpers.wskey = Wskey;
                 helpers.wskey_secret = Secret_Key;
+                helpers.principleDNS = PrincipleIDNS;
+                helpers.principleID = PrincipleID;
 
                 if (base_url.EndsWith("/") == false)
                 {
                     base_url += "/";
                 }
                 base_url += oclcNumber + "?holdingCode=" + holdingCode + "&classificationScheme=" + schema + "&holdingLibraryCode=" + holdingLibraryCode;
-                string response = helpers.MakeHTTPRequest(base_url, SetProxy, "GET");
+                string response = helpers.MakeHTTPRequest(base_url, SetProxy, "GET", "application/atom+xml;content=\"application/vnd.oclc.marc21+xml\"");
                 Debug_Info = helpers.debug_string + "\n\n" + base_url;
                 LastResponseCode = response;
                 sRecord = response;
@@ -299,7 +301,7 @@ namespace oclc_api
                 helpers.wskey_secret = Secret_Key;
 
                 base_url += "?classificationScheme=" + schema + "&instSymbol=" + InstSymbol + "&holdingLibraryCode=" + holdingCode + "&oclcNumber=" + oclcNumber;
-                string response = helpers.MakeHTTPRequest(base_url, SetProxy, "POST");
+                string response = helpers.MakeHTTP_POST_PUT_Request(base_url, SetProxy, "POST", ""); //helpers.MakeHTTPRequest(base_url, SetProxy, "POST").Result;
 
                 Debug_Info = helpers.debug_string + "\n\n" + base_url;
                 LastResponseCode = response;
@@ -463,7 +465,7 @@ namespace oclc_api
                 }
 
                 base_url += oclcNumber + "?classificationScheme=" + schema + "&holdingLibraryCode=" + holdingCode;
-                string response = helpers.MakeHTTPRequest(base_url, SetProxy, "GET");
+                string response = helpers.MakeHTTPRequest(base_url, SetProxy, "GET", "application/atom+xml;content=\"application/vnd.oclc.marc21+xml\"");
                 sRecord = response;
                 Debug_Info = helpers.debug_string + "\n\n" + base_url;
                 LastResponseCode = response;
@@ -662,10 +664,37 @@ namespace oclc_api
             if (helpers.access_token_table != null)
             {
                 return (string)helpers.access_token_table["access_token"];
+            }            
+            string response = helpers.GenerateAccessToken(SetProxy);
+            if (response == "true")
+            {
+                return (string)helpers.access_token_table["access_token"];
+            }else
+            {
+                return "false";
+            }
+            
+
+        }
+
+        public System.Collections.Hashtable OutputAccessTokenHash()
+        {
+            LastResponseCode = "";
+            helpers.wskey = Wskey;
+            helpers.wskey_secret = Secret_Key;
+            if (helpers.access_token_table != null)
+            {
+                return helpers.access_token_table;
             }
             string response = helpers.GenerateAccessToken(SetProxy);
-            return response;
-
+            if (response == "true")
+            {
+                return helpers.access_token_table;
+            } else
+            {
+                return null;
+            }
+            
         }
         internal string BuildAuthorization(string uri)
         {
