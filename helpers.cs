@@ -100,6 +100,12 @@ namespace oclc_api
                             GenerateAccessToken(internal_proxy);
                         }
                     }
+                    if (access_token_table == null ||
+                        access_token_table["access_token"]==null)
+                    {
+                        debug_string += "Unable to generate access token";
+                        return "";
+                    }
                     secure_auth = "Bearer" + " " + access_token_table["access_token"];
 
 
@@ -116,12 +122,12 @@ namespace oclc_api
 
                 wr.Accept = "application/json";
                 wr.Method = "GET";
-
+                string response_string = "";
                 try
                 {
                     System.Net.WebResponse response = wr.GetResponse();
                     System.IO.Stream response_stream = response.GetResponseStream();
-                    string response_string = new System.IO.StreamReader(response_stream).ReadToEnd();
+                    response_string = new System.IO.StreamReader(response_stream).ReadToEnd();
                     response_stream.Close();
 
                     string oclc_regid = "";
@@ -137,9 +143,13 @@ namespace oclc_api
                         return ReadJson(response_string, "entries[0].content.institution.identifiers.oclcSymbol");
                     }                    
                 }
-                catch (System.Exception innererror) { } //System.Windows.Forms.MessageBox.Show("Error in inner loop" + "\n" + innererror.ToString()); }
+                catch (System.Exception innererror) {
+                    debug_string += "Inner Error: \n" + innererror.ToString() + "\nResponse String: \n" + response_string;
+                } //System.Windows.Forms.MessageBox.Show("Error in inner loop" + "\n" + innererror.ToString()); }
             }
-            catch { } // System.Windows.Forms.MessageBox.Show("Error in outer loop"); }
+            catch (System.Exception outererror) {
+                debug_string += "Outer Error: \n" + outererror.ToString();
+            } // System.Windows.Forms.MessageBox.Show("Error in outer loop"); }
 
             return "";
 
@@ -174,6 +184,8 @@ namespace oclc_api
 
             string uri = accesstoken_url + "?grant_type=client_credentials&authenticatingInstitutionId=" + institution_id +
                                            "&contextInstitutionId=" + attribute_id + "&scope=WorldCatMetadataAPI";
+
+            debug_string += "Access Token URI: " + uri;
             string digest = signature_base_string(timestamp, noce, uri, "POST");
 
             string auth = "";
@@ -203,7 +215,7 @@ namespace oclc_api
                 wr.Headers.Add(System.Net.HttpRequestHeader.Authorization, auth);
                 System.Diagnostics.Debug.Print(auth);
 
-                wr.ContentType = "application/json";
+                //wr.ContentType = "application/json";
                 wr.Accept = "application/json";
                 //wr.Accept = "application/json";
                 //wr.Host = accesstoken_url;
@@ -238,11 +250,13 @@ namespace oclc_api
             catch (System.Net.WebException web_e)
             {
                 string resp = new System.IO.StreamReader(web_e.Response.GetResponseStream()).ReadToEnd();
+                debug_string += "Generate Access Token Error: \n" + web_e.ToString();
                 //System.Windows.Forms.MessageBox.Show(resp + "\n" + web_e.ToString());
                 return resp;
             }
             catch (Exception e)
             {
+                debug_string += "Generate Access Token Error: \n" + e.ToString();
                 //System.Windows.Forms.MessageBox.Show(e.ToString());
                 return e.ToString();
             }
@@ -414,7 +428,14 @@ namespace oclc_api
                             GenerateAccessToken(proxy);
                         }
                     }
-                    client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", access_token_table["access_token"].ToString());
+                    if (access_token_table == null ||
+                        access_token_table.ContainsKey("access_token") == false)
+                    {
+                        debug_string += "Generate Access Token Error\n";
+                        return "";
+                    }
+
+                    client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", access_token_table["access_token"].ToString());                    
                     secure_auth = "Bearer" + " " + access_token_table["access_token"];
                 }
                 else
@@ -520,7 +541,17 @@ namespace oclc_api
                             GenerateAccessToken(proxy);
                         }
                     }
-                    client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", access_token_table["access_token"].ToString());
+
+                    if (access_token_table == null ||
+                         access_token_table.ContainsKey("access_token") == false)
+                    {
+                        //an issue occurred with the registry API -- unable to 
+                        //create token
+                        debug_string += "Generate Access Token Error\n";
+                        return "";
+                    }
+
+                    client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", access_token_table["access_token"].ToString());                    
                     secure_auth = "Bearer" + " " + access_token_table["access_token"];
                 }
                 else
@@ -556,11 +587,12 @@ namespace oclc_api
             catch (System.Net.WebException web_e)
             {
                 string resp = new System.IO.StreamReader(web_e.Response.GetResponseStream()).ReadToEnd();
+                debug_string += "Put/Post Exception: \n" + web_e.ToString();
                 return resp;
             }
             catch (Exception e)
             {
-
+                debug_string += "Put/Post Exception: \n" + e.ToString();
                 return e.ToString();
             }
         }
@@ -678,6 +710,13 @@ namespace oclc_api
                         GenerateAccessToken(proxy);
                     }
                 }
+                if (access_token_table == null ||
+                        access_token_table.ContainsKey("access_token") == false)
+                {
+                    debug_string += "Generate Access Token Error\n";
+                    return "";
+                }
+
                 secure_auth = "Bearer" + " " + access_token_table["access_token"];
             }
             else
@@ -785,6 +824,13 @@ namespace oclc_api
                     {
                         GenerateAccessToken(proxy);
                     }
+                }
+
+                if (access_token_table == null ||
+                        access_token_table.ContainsKey("access_token") == false)
+                {
+                    debug_string += "Generate access token error\n";
+                    return "";
                 }
                 secure_auth = "Bearer" + " " + access_token_table["access_token"];
             }
