@@ -13,8 +13,10 @@ namespace oclc_api
         private int pRecordCount = 0;
         private System.Net.WebProxy pSetProxy = null;
         private string pwskey = "";
-        private string pURL = "http://www.worldcat.org/webservices/catalog/search/sru?query={query}&wskey={wskey}";
+        private string pURL = "http://www.worldcat.org/webservices/catalog/search/sru?query={query}&wskey={wskey}&servicelevel=full";
         private string pQueriedURL = "";
+
+        private System.Collections.Generic.Dictionary<Limit_Keys, string> limiters = new Dictionary<Limit_Keys, string>();
 
         public enum Query_Type {
             keyword=0,
@@ -23,10 +25,25 @@ namespace oclc_api
             subject=3,
             isbn = 4,
             issn = 5,
-            oclc = 6
-
+            oclc = 6, 
+            corpname = 7,
+            lccn = 8, 
+            publisher = 9,
+            publisher_number = 10,
+            series = 11,
+            standard_number = 12
         }
 
+        public enum Limit_Keys
+        {
+            language = 0, 
+            format = 1,
+            internet = 2,
+            sources = 3,
+            years = 4,
+            material_type = 5
+        }
+ 
         public struct struct_Records
         {
             public string main;
@@ -64,12 +81,31 @@ namespace oclc_api
             set { pSetProxy = value; }
         }
 
+
+        public System.Collections.Generic.Dictionary<Limit_Keys,string> SearchLimiters
+        {
+            get { return limiters; }
+            set { limiters = value; }
+        }
+
         public oclc_api_search(string OCLC_Wskey)
         {
             wskey = OCLC_Wskey;
+            CreateLimiters();
         }
 
-        public oclc_api_search() { }
+        public void CreateLimiters ()
+        {
+            limiters.Add(Limit_Keys.language, "");
+            limiters.Add(Limit_Keys.format, "");
+            limiters.Add(Limit_Keys.internet, "");
+            limiters.Add(Limit_Keys.sources, "");
+            limiters.Add(Limit_Keys.years, "");
+            limiters.Add(Limit_Keys.material_type, "");
+        }
+        public oclc_api_search() {
+            CreateLimiters();
+        }
 
         public string SearchWorldCat(string query, oclc_api_search.Query_Type qtype) 
         {
@@ -78,26 +114,48 @@ namespace oclc_api
             switch (qtype)
             {
                 case Query_Type.keyword:
-                    sindex = System.Uri.EscapeDataString("srw.kw=\"" + query + "\"");
+                    sindex = "srw.kw+all+\"" + System.Uri.EscapeDataString(query) + "\"";
                     break;
                 case Query_Type.author:
-                    sindex = System.Uri.EscapeDataString("srw.au=\"" + query + "\"");
+                    sindex = "srw.au+all+\"" + System.Uri.EscapeDataString(query) + "\"";
                     break;
                 case Query_Type.subject:
-                    sindex = System.Uri.EscapeDataString("srw.su=\"" + query + "\"");
+                    sindex = "srw.su+all+\"" + System.Uri.EscapeDataString(query) + "\"";
                     break;
                 case Query_Type.title:
-                    sindex = System.Uri.EscapeDataString("srw.ti=\"" + query + "\"");
+                    sindex = "srw.ti+all+\"" + System.Uri.EscapeDataString(query) + "\"";
                     break;
                 case Query_Type.isbn:
-                    sindex = System.Uri.EscapeDataString("srw.bn=\"" + query + "\"");
+                    sindex = "srw.bn+all+\"" + System.Uri.EscapeDataString(query) + "\"";
                     break;
                 case Query_Type.issn:
-                    sindex = System.Uri.EscapeDataString("srw.in=\"" + query + "\"");
+                    sindex = "srw.in+all+\"" + System.Uri.EscapeDataString(query) + "\"";
                     break;
                 case Query_Type.oclc:
-                    sindex = System.Uri.EscapeDataString("srw.no=\"" + query + "\"");
+                    sindex = "srw.no+all+\"" + System.Uri.EscapeDataString(query) + "\"";
                     break;
+                case Query_Type.corpname:
+                    sindex = "srw.cn+all+\"" + System.Uri.EscapeDataString(query) + "\"";
+                    break;
+                case Query_Type.lccn:
+                    sindex = "srw.dn+all+\"" + System.Uri.EscapeDataString(query) + "\"";
+                    break;
+                case Query_Type.publisher:
+                    sindex = "srw.pb+all+\"" + System.Uri.EscapeDataString(query) + "\"";
+                    break;
+                case Query_Type.publisher_number:
+                    sindex = "srw.mn+all+\"" + System.Uri.EscapeDataString(query) + "\"";
+                    break;
+                case Query_Type.series:
+                    sindex = "srw.se+all+\"" + System.Uri.EscapeDataString(query) + "\"";
+                    break;
+                case Query_Type.standard_number:
+                    sindex = "srw.sn+all+\"" + System.Uri.EscapeDataString(query) + "\"";
+                    break;
+                /*
+series[srw.se]
+standard number[srw.sn]
+*/
                 default:
                     sindex = System.Uri.EscapeDataString("srw.kw=\"" + query + "\"");
                     break;
@@ -127,34 +185,88 @@ namespace oclc_api
                 switch (qtype[x])
                 {
                     case Query_Type.keyword:
-                        sindex += "srw.kw=\"" + query[x] + "\" " + sconditional + " ";
+                        sindex += "srw.kw+all+\"" + System.Uri.EscapeDataString(query[x]) + "\"+" + sconditional + "+";
                         break;
                     case Query_Type.author:
-                        sindex += "srw.au=\"" + query[x] + "\" " + sconditional + " ";
+                        sindex += "srw.au+all+\"" + System.Uri.EscapeDataString(query[x]) + "\"+" + sconditional + "+";
                         break;
                     case Query_Type.subject:
-                        sindex += "srw.su=\"" + query[x] + "\" " + sconditional + " ";
+                        sindex += "srw.su+all+\"" + System.Uri.EscapeDataString(query[x]) + "\"+" + sconditional + "+";
                         break;
                     case Query_Type.title:
-                        sindex += "srw.ti=\"" + query[x] + "\" " + sconditional + " ";
+                        sindex += "srw.ti+all+\"" + System.Uri.EscapeDataString(query[x]) + "\"+" + sconditional + "+";
                         break;
                     case Query_Type.isbn:
-                        sindex += "srw.bn=\"" + query[x] + "\" " + sconditional + " ";
+                        sindex += "srw.bn+all+\"" + System.Uri.EscapeDataString(query[x]) + "\"+" + sconditional + "+";
                         break;
                     case Query_Type.issn:
-                        sindex += "srw.in=\"" + query[x] + "\" " + sconditional + " ";
+                        sindex += "srw.in+all+\"" + System.Uri.EscapeDataString(query[x]) + "\"+" + sconditional + "+";
                         break;
                     case Query_Type.oclc:
-                        sindex += "srw.no=\"" + query[x] + "\" " + sconditional + " ";
+                        sindex += "srw.no+all+\"" + System.Uri.EscapeDataString(query[x]) + "\"+" + sconditional + "+";
+                        break;
+                    case Query_Type.corpname:
+                        sindex += "srw.cn+all+\"" + System.Uri.EscapeDataString(query[x]) + "\"+" + sconditional + "+";
+                        break;
+                    case Query_Type.lccn:
+                        sindex += "srw.dn+all+\"" + System.Uri.EscapeDataString(query[x]) + "\"+" + sconditional + "+";
+                        break;
+                    case Query_Type.publisher:
+                        sindex += "srw.pb+all+\"" + System.Uri.EscapeDataString(query[x]) + "\"+" + sconditional + "+";
+                        break;
+                    case Query_Type.publisher_number:
+                        sindex += "srw.mn+all+\"" + System.Uri.EscapeDataString(query[x]) + "\"+" + sconditional + "+";
+                        break;
+                    case Query_Type.series:
+                        sindex += "srw.se+all+\"" + System.Uri.EscapeDataString(query[x]) + "\"+" + sconditional + "+";
+                        break;
+                    case Query_Type.standard_number:
+                        sindex += "srw.sn+all+\"" + System.Uri.EscapeDataString(query[x]) + "\"+" + sconditional + "+";
                         break;
                     default:
-                        sindex += "srw.kw=\"" + query[x] + "\" " + sconditional + " ";
+                        sindex += "srw.kw+all+\"" + System.Uri.EscapeDataString(query[x]) + "\"+" + sconditional + "+";
                         break;
                 }
             }
 
-            sindex = sindex.Substring(0, sindex.Length - (" " + sconditional + " ").Length);
-            sindex = System.Uri.EscapeDataString(sindex);
+            sindex = sindex.Substring(0, sindex.Length - ("+" + sconditional + "+").Length);
+
+            //now we check the limiters
+            if (!string.IsNullOrEmpty(SearchLimiters[Limit_Keys.language]))
+            {
+                sindex += "+and+srw.ln+any+\"" + System.Uri.EscapeDataString(SearchLimiters[Limit_Keys.language]) + "\"+";
+            }
+
+            if (!string.IsNullOrEmpty(SearchLimiters[Limit_Keys.format]))
+            {
+                sindex += "+and+srw.dt+any+\"" + System.Uri.EscapeDataString(SearchLimiters[Limit_Keys.format]) + "\"+";
+            }
+
+            if (!string.IsNullOrEmpty(SearchLimiters[Limit_Keys.internet]))
+            {
+                sindex += "+and+srw.mt+any+\"" + System.Uri.EscapeDataString(SearchLimiters[Limit_Keys.internet]) + "\"+";
+            }
+
+            if (!string.IsNullOrEmpty(SearchLimiters[Limit_Keys.sources]))
+            {
+                sindex += "+and+srw.pc+any+\"" + System.Uri.EscapeDataString(SearchLimiters[Limit_Keys.sources]) + "\"+";
+            }
+
+            if (!string.IsNullOrEmpty(SearchLimiters[Limit_Keys.years]))
+            {
+                sindex += "+and+srw.yr+any+\"" + System.Uri.EscapeDataString(SearchLimiters[Limit_Keys.years]) + "\"+";
+            }
+
+            if (!string.IsNullOrEmpty(SearchLimiters[Limit_Keys.material_type]))
+            {
+                sindex += "+and+srw.mt+any+\"" + System.Uri.EscapeDataString(SearchLimiters[Limit_Keys.material_type]) + "\"+";
+            }
+
+
+            sindex = sindex.TrimEnd("+".ToCharArray());
+
+
+            //sindex = System.Uri.EscapeDataString(sindex);
             string url = OCLC_WORLDCAT_URL.Replace("{query}", sindex).Replace("{wskey}", wskey);
 
             QueryURL = url;
